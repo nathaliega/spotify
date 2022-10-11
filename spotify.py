@@ -11,6 +11,7 @@ from rauth import OAuth2Service
 from aiohttp import ClientSession
 import asyncio
 import json
+import math 
 
 CLIENT_ID = "31410dfff44243bb84d61ea5d4f296ae"
 SECRET_KEY = "805513f767f440859bbf0c8d0546dc17"
@@ -22,7 +23,6 @@ class Song:
         self.artist = artist
         self.lan = None
         self.uri = uri
-        # self.lyrics = self.get_lyrics()
 
 
 class SpotifyHandler:
@@ -120,13 +120,33 @@ class SpotifyHandler:
     def get_user_id(self):
         return self.make_call('get', 'me', headers=self.api_headers)['id']
 
+
+    def get_songs_and_lan(self):
+        songs = self.get_songs()
+        with FuturesSession(max_workers=3) as session:
+            for song in songs:
+                song.lan = session.get(f"http://api.genius.com/search?q={song.name}%20{song.artist}", 
+                    headers={"Authorization": f"Bearer ticNcbIdYkprjA2F9QPwfr5sB0gc-dsfJveYzLxrYXwHksvCD05nvSnie1L4RMY6"})
+
+        for song in songs:
+            try:
+                song.lan = song.lan.result().json()['response']['hits'][0]['result']['language']
+            except:
+                song.lan = "unidentified"
+        
+        return songs
+
     def create_playlist(self, lan, songs):
         playlist_id = self.make_call('post', f"users/{self.user_id}/playlists", headers=self.api_headers, data=json.dumps({
                 'name': lan,
                 'public': False
-            }))['id']
+            })).get('id')
 
-        for i in range(round(len(songs)/90)):
+        if not playlist_id:
+            print("Error adding playlist for language {}".format(lan))
+            return False
+
+        for i in range(math.ceil(len(songs)/90)):
             uris = {
                     "uris": [song.uri for song in songs[i*90:(i+1)*90]], 
                     "position": i*90
@@ -137,87 +157,15 @@ class SpotifyHandler:
 
         return True
 
-    def identify_languages(self, songs):
-        with FuturesSession(max_workers=2) as session:
-            for song in songs:
-                song.lan = session.get(f"http://api.genius.com/search?q={song.name}%20{song.artist}", 
-                    headers={"Authorization": f"Bearer ticNcbIdYkprjA2F9QPwfr5sB0gc-dsfJveYzLxrYXwHksvCD05nvSnie1L4RMY6"})
-            
-            
-            # for future in as_completed(futures):
-                # response = future.result()
-                # print(response)
-
-        for song in songs:
-            try:
-                song.lan = song.lan.result().json()['response']['hits'][0]['result']['language']
-            except:
-                song.lan = "unidentified"
-
-    # def get_lan(self):
-    #     url = requests.get("https://genius.com/{}-{}-lyrics".format(str(self.artist).replace(' ', '-'),
-    #         str(self.name).replace(' ', '-')))
-
-    #     soup = BeautifulSoup(url.text, 'html.parser')
-    #     lyrics = soup.find("div", class_="Lyrics__Container-sc-1ynbvzw-6 YYrds")
-    #     if lyrics:
-    #         return str(lyrics.get_text())
-    #     return None
 
 
 handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
-# handler.authorize()
-songs = handler.get_songs()
-handler.create_playlist("test", songs)
-# playlist = handler.create_playlist('i love you')
-# handler.add_songs(playlist, songs)
+songs = handler.get_songs_and_lan()
 
+lans = {lan: [] for lan in set([song.lan for song in songs])}
+for song in songs:
+    lans[song.lan].append(song)
 
+for lan, list in lans.items():
+    handler.create_playlist(lan, list)
 
-
-
-
-
-
-    # def find_language(self):
-    #     if self.lyrics:
-    #         return langid.classify(self.lyrics)[0]
-    #     return langid.classify(self.name)[0]
-
-
-# tracks = handler.get_songs()
-# all_songs = [(track['name'], track['artists'][0]['name']) for track in tracks]
-# songs = [Song(song['name'], song['artists'][0]['name']) for song in handler.get_songs()]
-
-
-# print("Done")
-# async def resolve_list(list_of_songs):
-#     async with ClientSession(headers=headers) as session:
-#     # {"Authorization":)
-# with FuturesSession(max_workers=30) as session:
-    # for song in songs:
-        
-    # print(f"song: {song.name}, by {song.artist}, lan: {song.lan}, lyrics: {song.lyrics}")
-
-# headers = {
-#     "accept": "application/json",
-#     "Authorization": "Bearer ticNcbIdYkprjA2F9QPwfr5sB0gc-dsfJveYzLxrYXwHksvCD05nvSnie1L4RMY6",
-# }
-# async def get_lyrics(song: Song, session: ClientSession):
-#     response = await session.get("http://api.genius.com/search?q=scientist%20coldplay")
-#     json = await response.json()
-#     print(json)
-#     song.lan = json['response']['hits'][0]['language']
-
-# async def resolve_list(list_of_songs):
-#     async with ClientSession(headers=headers) as session:
-#     # {"Authorization": "Bearer ticNcbIdYkprjA2F9QPwfr5sB0gc-dsfJveYzLxrYXwHksvCD05nvSnie1L4RMY6"}) as session:
-
-#         s = []
-#         for song in list_of_songs:
-#             s.append(get_lyrics(song, session))
-#         await asyncio.gather(*s)
-
-# asyncio.run(resolve_list(songs))
-
-print("Done")
