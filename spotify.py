@@ -1,3 +1,5 @@
+from socket import ALG_SET_AEAD_ASSOCLEN
+from unicodedata import name
 import requests
 from urllib.parse import urlencode, urlparse, parse_qs
 import webbrowser
@@ -23,6 +25,12 @@ class Song:
         self.artist = artist
         self.lan = None
         self.uri = uri
+
+class Playlist:
+    def __init__(self, name, playlist_id, songs=[]) -> None:
+        self.name = name
+        self.songs = songs
+        self.playlist_id = playlist_id
 
 
 class SpotifyHandler:
@@ -50,7 +58,7 @@ class SpotifyHandler:
             "client_id": self.client_id,
             "response_type": "code",
             "redirect_uri": "http://localhost:8888",
-            "scope": "user-library-read playlist-modify-private"
+            "scope": "user-library-read playlist-modify-private playlist-read-private"
         }))
         httpd = HTTPServer(('localhost', 8888), MyHandler)
 
@@ -99,7 +107,7 @@ class SpotifyHandler:
 
         total = self.make_call('get', endpoint, headers, data, params)['total']/50
 
-        for page in range(round(total / 50)):
+        for page in range(round(total / 50) or 1):
             items.extend(self.make_call('get', endpoint, headers, data,
                                         params={"offset": page * 50, "limit": 50})['items'])
 
@@ -127,7 +135,7 @@ class SpotifyHandler:
             for song in songs:
                 song.lan = session.get(f"http://api.genius.com/search?q={song.name}%20{song.artist}", 
                     headers={"Authorization": f"Bearer ticNcbIdYkprjA2F9QPwfr5sB0gc-dsfJveYzLxrYXwHksvCD05nvSnie1L4RMY6"})
-
+    
         for song in songs:
             try:
                 song.lan = song.lan.result().json()['response']['hits'][0]['result']['language']
@@ -136,8 +144,26 @@ class SpotifyHandler:
         
         return songs
 
+    def get_playlists(self):
+        return [Playlist(playlist['name'], playlist['id']) for playlist 
+            in self.get_resource(f"users/{self.user_id}/playlists")]
+
+    def empty_playlist(self, playlist):
+        songs_uris = []
+
+        for i in range(math.ceil((self.make_call('get', 
+            f'playlists/{playlist.playlist_id}/tracks')['total']/50))):
+            songs_uris.extend([{'uri': track['track']['uri']} for track in self.make_call('get',
+                f'playlists/{playlist.playlist_id}/tracks',
+                params={"offset": i * 50, "limit": 50})['items']])
+
+
+        return songs_uris
+
+        # self.make_call('delete', f'playlist/{playlist_id}/tracks')
+
     def create_playlist(self, lan, songs):
-        playlist_id = self.make_call('post', f"users/{self.user_id}/playlists", headers=self.api_headers, data=json.dumps({
+        playlist_id = self.make_call('post', f"users/{self.user_id}/playlists", data=json.dumps({
                 'name': lan,
                 'public': False
             })).get('id')
@@ -160,12 +186,20 @@ class SpotifyHandler:
 
 
 handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
-songs = handler.get_songs_and_lan()
 
-lans = {lan: [] for lan in set([song.lan for song in songs])}
-for song in songs:
-    lans[song.lan].append(song)
+# songs = handler.get_songs()
+# handler.create_playlist("big playlist", songs[0:155])
+playlists = handler.get_playlists()
+print(playlists[1].name)
+p = handler.empty_playlist(playlists[1])
+print(p)
 
-for lan, list in lans.items():
-    handler.create_playlist(lan, list)
+
+# lans = {lan: [] for lan in set([song.lan for song in songs])}
+
+# for song in songs:
+#     lans[song.lan].append(song)
+
+# for lan, list in lans.items():
+#     handler.create_playlist(lan, list)
 
