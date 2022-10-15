@@ -149,18 +149,18 @@ class SpotifyHandler:
             in self.get_resource(f"users/{self.user_id}/playlists")]
 
     def empty_playlist(self, playlist):
-        songs_uris = []
 
         for i in range(math.ceil((self.make_call('get', 
             f'playlists/{playlist.playlist_id}/tracks')['total']/50))):
-            songs_uris.extend([{'uri': track['track']['uri']} for track in self.make_call('get',
-                f'playlists/{playlist.playlist_id}/tracks',
-                params={"offset": i * 50, "limit": 50})['items']])
+            
+            self.make_call('delete', f'playlists/{playlist.playlist_id}/tracks', data=json.dumps(
+                {
+                    'tracks': [{'uri': track['track']['uri']
+                } for track in self.make_call('get', f'playlists/{playlist.playlist_id}/tracks',
+                params={"limit": 50})['items']]
+            }))
+        
 
-
-        return songs_uris
-
-        # self.make_call('delete', f'playlist/{playlist_id}/tracks')
 
     def create_playlist(self, lan, songs):
         playlist_id = self.make_call('post', f"users/{self.user_id}/playlists", data=json.dumps({
@@ -191,6 +191,8 @@ handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
 # handler.create_playlist("big playlist", songs[0:155])
 playlists = handler.get_playlists()
 print(playlists[1].name)
+
+
 p = handler.empty_playlist(playlists[1])
 print(p)
 
