@@ -89,7 +89,6 @@ class SpotifyHandler:
         self.api_headers = {
             "Authorization": "Bearer " + self.token
         }
-        print("Token: " + self.token)
         return self.token
 
     # Actual API calls
@@ -148,18 +147,26 @@ class SpotifyHandler:
         return [Playlist(playlist['name'], playlist['id']) for playlist 
             in self.get_resource(f"users/{self.user_id}/playlists")]
 
-    def empty_playlist(self, playlist):
+    def empty_playlist(self, playlist_id):
 
         for i in range(math.ceil((self.make_call('get', 
-            f'playlists/{playlist.playlist_id}/tracks')['total']/50))):
+            f'playlists/{playlist_id}/tracks')['total']/50))):
             
-            self.make_call('delete', f'playlists/{playlist.playlist_id}/tracks', data=json.dumps(
+            self.make_call('delete', f'playlists/{playlist_id}/tracks', data=json.dumps(
                 {
                     'tracks': [{'uri': track['track']['uri']
-                } for track in self.make_call('get', f'playlists/{playlist.playlist_id}/tracks',
+                } for track in self.make_call('get', f'playlists/{playlist_id}/tracks',
                 params={"limit": 50})['items']]
             }))
         
+    def update_playlist(self, playlist_id, songs):
+
+        for i in range(math.ceil(len(songs)/90)):
+            self.make_call('post', f'playlists/{playlist_id}/tracks', data= json.dumps(
+                {
+                    'uris': [song for song in songs][i*90:i*90+90]
+                }
+            ))
 
 
     def create_playlist(self, lan, songs):
@@ -174,7 +181,7 @@ class SpotifyHandler:
 
         for i in range(math.ceil(len(songs)/90)):
             uris = {
-                    "uris": [song.uri for song in songs[i*90:(i+1)*90]], 
+                    "uris": [song for song in songs[i*90:(i+1)*90]], 
                     "position": i*90
                 }
             
@@ -187,21 +194,20 @@ class SpotifyHandler:
 
 handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
 
-# songs = handler.get_songs()
-# handler.create_playlist("big playlist", songs[0:155])
+songs = handler.get_songs_and_lan()
+lan_and_songs = {lan: [] for lan in set([song.lan for song in songs])}
+
+for song in songs:
+    lan_and_songs[song.lan].append(song.uri) 
+
 playlists = handler.get_playlists()
-print(playlists[1].name)
+playlist_names = {playlist.name: playlist.playlist_id for playlist in playlists} 
 
+for lan in lan_and_songs.keys():
+    if lan in playlist_names.keys():
+        handler.empty_playlist(playlist_names[lan])
+        handler.update_playlist(playlist_names[lan], lan_and_songs[lan])
+    else:
+        handler.create_playlist(lan, lan_and_songs[lan])
 
-p = handler.empty_playlist(playlists[1])
-print(p)
-
-
-# lans = {lan: [] for lan in set([song.lan for song in songs])}
-
-# for song in songs:
-#     lans[song.lan].append(song)
-
-# for lan, list in lans.items():
-#     handler.create_playlist(lan, list)
 
