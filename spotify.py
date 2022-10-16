@@ -7,9 +7,10 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlencode, urlparse, parse_qs
 import requests
 from requests_futures.sessions import FuturesSession
+import os
 
-CLIENT_ID = "31410dfff44243bb84d61ea5d4f296ae"
-SECRET_KEY = "805513f767f440859bbf0c8d0546dc17"
+CLIENT_ID = os.environ.get('CLIENT_ID_SPOTIFY')
+SECRET_KEY = os.environ.get('SECRET_KEY_SPOTIFY')
 BASE_URL = "https://api.spotify.com/v1/"
 
 #pylint: disable=R0903
