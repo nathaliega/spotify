@@ -2,12 +2,17 @@
 import base64
 import json
 import math
+from turtle import hideturtle
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlencode, urlparse, parse_qs
 import requests
 from requests_futures.sessions import FuturesSession
 import os
+from flask import Flask
+
+app = Flask(__name__)
+
 
 CLIENT_ID = os.environ.get('CLIENT_ID_SPOTIFY')
 SECRET_KEY = os.environ.get('SECRET_KEY_SPOTIFY')
@@ -206,21 +211,23 @@ class SpotifyHandler:
         return True
 
 
+@app.route("/")
+def hello_world():
+    handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
+    print('auth done')
+    all_songs = handler.get_songs_and_lan()
+    lan_and_songs = {lan: [] for lan in set(song.lan for song in all_songs)}
 
-handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
+    for song in all_songs:
+        lan_and_songs[song.lan].append(song.uri)
 
-all_songs = handler.get_songs_and_lan()
-lan_and_songs = {lan: [] for lan in set(song.lan for song in all_songs)}
+    playlists = handler.get_playlists()
+    playlist_names = {playlist.name: playlist.playlist_id for playlist in playlists}
 
-for song in all_songs:
-    lan_and_songs[song.lan].append(song.uri)
-
-playlists = handler.get_playlists()
-playlist_names = {playlist.name: playlist.playlist_id for playlist in playlists}
-
-for lan in lan_and_songs.keys():
-    if lan in playlist_names.keys():
-        handler.empty_playlist(playlist_names[lan])
-        handler.update_playlist(playlist_names[lan], lan_and_songs[lan])
-    else:
-        handler.create_playlist(lan, lan_and_songs[lan])
+    for lan in lan_and_songs.keys():
+        if lan in playlist_names.keys():
+            handler.empty_playlist(playlist_names[lan])
+            handler.update_playlist(playlist_names[lan], lan_and_songs[lan])
+        else:
+            handler.create_playlist(lan, lan_and_songs[lan])
+    return "<h1>HI</h1>"
