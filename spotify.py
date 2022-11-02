@@ -2,14 +2,14 @@
 import base64
 import json
 import math
-from turtle import hideturtle
+# from turtle import hideturtle
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlencode, urlparse, parse_qs
 import requests
 from requests_futures.sessions import FuturesSession
 import os
-from flask import Flask
+from flask import Flask, redirect, request
 
 app = Flask(__name__)
 
@@ -49,50 +49,28 @@ class SpotifyHandler:
         self.secret_key = secret_key
         self.token = ""
         self.api_headers = {}
-        self.authorize()
-        self.user_id = self.get_user_id()
+        
 
-    def get_code(self):
-        """ gets code used for authorization """
-        class MyHandler(BaseHTTPRequestHandler):
-            """ HTTP server """
-            code = None
+    # @staticmethod
+    # def get_code(self):
 
-            #pylint: disable=C0103
-            def do_GET(self):
-                """ adding data to already existing funcion """
-                self.send_response(200)
-                self.send_header("Content-type", 'text/html')
-                self.end_headers()
-                if 'code' in parse_qs((urlparse(self.path)).query):
-                    MyHandler.code = parse_qs((urlparse(self.path)).query)['code'][0]
-            #pylint: enable=C0103
+    #     return redirect("https://accounts.spotify.com/authorize?" + urlencode({
+    #         "client_id": self.client_id,
+    #         "response_type": "code",
+    #         "redirect_uri": "http://localhost:5000/code",
+    #         "scope": "user-library-read playlist-modify-private playlist-read-private"
+    #     }))
+        
 
-        webbrowser.open("https://accounts.spotify.com/authorize?" + urlencode({
-            "client_id": self.client_id,
-            "response_type": "code",
-            "redirect_uri": "http://localhost:8888",
-            "scope": "user-library-read playlist-modify-private playlist-read-private"
-        }))
-        httpd = HTTPServer(('localhost', 8888), MyHandler)
-
-        while not MyHandler.code:
-            httpd.handle_request()
-
-        httpd.server_close()
-
-        return MyHandler.code
-
-    def authorize(self):
+    def authorize(self, code):
         """ authorizes app to connect to spotify account """
         encoded_credentials = base64.b64encode(self.client_id.encode() + ':'.encode() +
                                                self.secret_key.encode()).decode()
 
-        codes = self.get_code()
         response = requests.post(url="https://accounts.spotify.com/api/token", data={
             "grant_type": "authorization_code",
-            "code": codes,
-            "redirect_uri": "http://localhost:8888"
+            "code": code,
+            "redirect_uri": "http://localhost:5000/code"
         }, headers={
             "Authorization": "Basic " + encoded_credentials,
             "Content-Type": "application/x-www-form-urlencoded"
@@ -103,6 +81,8 @@ class SpotifyHandler:
         self.api_headers = {
             "Authorization": "Bearer " + self.token
         }
+
+        self.user_id = self.get_user_id()
         return self.token
 
     #pylint: disable=R0913
@@ -121,7 +101,7 @@ class SpotifyHandler:
         """ gets items using pagination """
         items = []
 
-        total = self.make_call('get', endpoint, headers, data, params)['total']
+        total = self.make_call('get', endpoint, headers, data, params)['total']/500
 
         for page in range(round(total / 50) or 1):
             items.extend(self.make_call('get', endpoint, headers, data,
@@ -212,9 +192,29 @@ class SpotifyHandler:
 
 
 @app.route("/")
+def start():
+    return redirect("https://accounts.spotify.com/authorize?" + urlencode({
+        "client_id": CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": "http://localhost:5000/code",
+        "scope": "user-library-read playlist-modify-private playlist-read-private"
+    }))
+
+
+code = None
+@app.route("/code")
+def get_code():
+    global code
+    code = request.args.get('code')
+    return redirect("/main")
+
+@app.route("/main")
 def hello_world():
+
     handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
-    print('auth done')
+    if not code:
+        return "<h1>Authorize</h1>"
+    handler.authorize(code)
     all_songs = handler.get_songs_and_lan()
     lan_and_songs = {lan: [] for lan in set(song.lan for song in all_songs)}
 
@@ -231,3 +231,5 @@ def hello_world():
         else:
             handler.create_playlist(lan, lan_and_songs[lan])
     return "<h1>HI</h1>"
+
+app.run(debug=True, host='0.0.0.0', port=5000)
