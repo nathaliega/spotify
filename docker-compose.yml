@@ -7,6 +7,6 @@ services:
       - .:/spotify
     ports:
       - "5000:5000"
-    command: python3 spotify.py
+    command: python spotify.py
     env_file:
       - vars.env
