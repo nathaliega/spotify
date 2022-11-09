@@ -1,2 +1,4 @@
 spotify_venv
 vars.env
+
+__pycache__/

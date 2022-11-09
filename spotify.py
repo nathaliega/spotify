@@ -9,7 +9,7 @@ from urllib.parse import urlencode, urlparse, parse_qs
 import requests
 from requests_futures.sessions import FuturesSession
 import os
-from flask import Flask, redirect, request
+from flask import Flask, redirect, request, render_template
 
 app = Flask(__name__)
 
@@ -126,8 +126,7 @@ class SpotifyHandler:
         tracks = self.get_songs()
         with FuturesSession(max_workers=3) as session:
             for track in tracks:
-                track.lan = session.get(f"http://api.genius.com/search \
-                    ?q={track.name}%20{track.artist}",
+                track.lan = session.get(f"http://api.genius.com/search?q={track.name}%20{track.artist}",
                     headers={
                         "Authorization":
                         "Bearer ticNcbIdYkprjA2F9QPwfr5sB0gc-dsfJveYzLxrYXwHksvCD05nvSnie1L4RMY6"
@@ -136,7 +135,7 @@ class SpotifyHandler:
         for track in tracks:
             try:
                 track.lan = track.lan.result().json()['response']['hits'][0]['result']['language']
-            except KeyError:
+            except (KeyError, IndexError):
                 track.lan = "unidentified"
 
         return tracks
@@ -190,8 +189,12 @@ class SpotifyHandler:
 
         return True
 
-
 @app.route("/")
+def home():
+    return render_template("home.html")
+    # return redirect("/start") 
+
+@app.route("/start")
 def start():
     return redirect("https://accounts.spotify.com/authorize?" + urlencode({
         "client_id": CLIENT_ID,
@@ -213,7 +216,7 @@ def hello_world():
 
     handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
     if not code:
-        return "<h1>Authorize</h1>"
+        return "<h1>No code found</h1>"
     handler.authorize(code)
     all_songs = handler.get_songs_and_lan()
     lan_and_songs = {lan: [] for lan in set(song.lan for song in all_songs)}
@@ -224,12 +227,14 @@ def hello_world():
     playlists = handler.get_playlists()
     playlist_names = {playlist.name: playlist.playlist_id for playlist in playlists}
 
+
     for lan in lan_and_songs.keys():
         if lan in playlist_names.keys():
             handler.empty_playlist(playlist_names[lan])
             handler.update_playlist(playlist_names[lan], lan_and_songs[lan])
         else:
             handler.create_playlist(lan, lan_and_songs[lan])
-    return "<h1>HI</h1>"
+
+    return "<h1>DONE</h1>"
 
 app.run(debug=True, host='0.0.0.0', port=5000)
