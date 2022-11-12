@@ -1,0 +1,2 @@
+#!/bin/bash
+sed 's/localhost/178.217.113.103/g' spotify.py > spotify_deploy.py
