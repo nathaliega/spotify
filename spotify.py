@@ -101,7 +101,7 @@ class SpotifyHandler:
         """ gets items using pagination """
         items = []
 
-        total = self.make_call('get', endpoint, headers, data, params)['total']/500
+        total = self.make_call('get', endpoint, headers, data, params)['total'] 
 
         for page in range(round(total / 50) or 1):
             items.extend(self.make_call('get', endpoint, headers, data,
