@@ -70,7 +70,7 @@ class SpotifyHandler:
         response = requests.post(url="https://accounts.spotify.com/api/token", data={
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": "http://localhost:5000/code"
+            "redirect_uri": "http://localhost:5000/spotify/code"
         }, headers={
             "Authorization": "Basic " + encoded_credentials,
             "Content-Type": "application/x-www-form-urlencoded"
@@ -189,29 +189,29 @@ class SpotifyHandler:
 
         return True
 
-@app.route("/")
+@app.route("/spotify/")
 def home():
     return render_template("home.html")
     # return redirect("/start") 
 
-@app.route("/start")
+@app.route("/spotify/start")
 def start():
     return redirect("https://accounts.spotify.com/authorize?" + urlencode({
         "client_id": CLIENT_ID,
         "response_type": "code",
-        "redirect_uri": "http://localhost:5000/code",
+        "redirect_uri": "http://localhost:5000/spotify/code",
         "scope": "user-library-read playlist-modify-private playlist-read-private"
     }))
 
 
 code = None
-@app.route("/code")
+@app.route("/spotify/code")
 def get_code():
     global code
     code = request.args.get('code')
-    return redirect("/main")
+    return redirect("/spotify/main")
 
-@app.route("/main")
+@app.route("/spotify/main")
 def hello_world():
 
     handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
