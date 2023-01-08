@@ -2,15 +2,12 @@
 import base64
 import json
 import math
-# from turtle import hideturtle
-import webbrowser
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlencode, urlparse, parse_qs
 import requests
+from urllib.parse import urlencode, urlparse, parse_qs
 from requests_futures.sessions import FuturesSession
 import os
 from flask import Flask, redirect, request, render_template
-
+from threading import Thread
 app = Flask(__name__)
 
 
@@ -19,6 +16,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY_SPOTIFY')
 BASE_URL = "https://api.spotify.com/v1/"
 
 #pylint: disable=R0903
+
+
 class Song:
     """ song datatype """
     def __init__(self, name, artist, uri):
@@ -42,6 +41,7 @@ class Playlist:
         return f"{self.name} with id: {self.playlist_id}"
 #pylint: enable=R0903
 
+
 class SpotifyHandler:
     """ makes api calls """
     def __init__(self, client_id, secret_key):
@@ -49,23 +49,11 @@ class SpotifyHandler:
         self.secret_key = secret_key
         self.token = ""
         self.api_headers = {}
-        
-
-    # @staticmethod
-    # def get_code(self):
-
-    #     return redirect("https://accounts.spotify.com/authorize?" + urlencode({
-    #         "client_id": self.client_id,
-    #         "response_type": "code",
-    #         "redirect_uri": "http://localhost:5000/code",
-    #         "scope": "user-library-read playlist-modify-private playlist-read-private"
-    #     }))
-        
 
     def authorize(self, code):
         """ authorizes app to connect to spotify account """
-        encoded_credentials = base64.b64encode(self.client_id.encode() + ':'.encode() +
-                                               self.secret_key.encode()).decode()
+        encoded_credentials = base64.b64encode(self.client_id.encode() + 
+                            ':'.encode() + self.secret_key.encode()).decode()
 
         response = requests.post(url="https://accounts.spotify.com/api/token", data={
             "grant_type": "authorization_code",
@@ -105,21 +93,19 @@ class SpotifyHandler:
 
         for page in range(round(total / 50) or 1):
             items.extend(self.make_call('get', endpoint, headers, data,
-                                        params={"offset": page * 50, "limit": 50})['items'])
+                                        params={"offset": page * 50,
+                                        "limit": 50})['items'])
 
         return items
 
-
     def get_songs(self):
         """ Creates song objects with its name, artist and uri. """
-        return [Song(song['track']['name'],song['track']['artists'][0]['name'],
+        return [Song(song['track']['name'], song['track']['artists'][0]['name'],
                 song['track']['uri']) for song in self.get_resource('me/tracks')]
-
 
     def get_user_id(self):
         """ gets id for user """
         return self.make_call('get', 'me', headers=self.api_headers)['id']
-
 
     def get_songs_and_lan(self):
         """ gets songs and assigns them their language """
@@ -167,7 +153,6 @@ class SpotifyHandler:
                 }
             ))
 
-
     def create_playlist(self, lans, songs):
         """ creates playlist and adds songs to it """
         playlist_id = self.make_call('post', f"users/{self.user_id}/playlists", data=json.dumps({
@@ -189,10 +174,12 @@ class SpotifyHandler:
 
         return True
 
+
 @app.route("/spotify/")
 def home():
     return render_template("home.html")
-    # return redirect("/start") 
+    # return redirect("/start")
+
 
 @app.route("/spotify/start")
 def start():
@@ -205,14 +192,15 @@ def start():
 
 
 code = None
+
+
 @app.route("/spotify/code")
 def get_code():
     global code
     code = request.args.get('code')
     return redirect("/spotify/main")
 
-@app.route("/spotify/main")
-def hello_world():
+def process():
 
     handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
     if not code:
@@ -226,8 +214,7 @@ def hello_world():
 
     playlists = handler.get_playlists()
     playlist_names = {playlist.name: playlist.playlist_id for playlist in playlists}
-
-
+    
     for lan in lan_and_songs.keys():
         if lan in playlist_names.keys():
             handler.empty_playlist(playlist_names[lan])
@@ -235,7 +222,12 @@ def hello_world():
         else:
             handler.create_playlist(lan, lan_and_songs[lan])
 
-    return "<h1>DONE</h1>"
+@app.route("/spotify/main")
+def main_func():
+    Thread(target=process).start()
+
+
+    return render_template("return.html")
 
 
 if __name__ == "__main__":
