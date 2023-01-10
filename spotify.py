@@ -89,7 +89,7 @@ class SpotifyHandler:
         """ gets items using pagination """
         items = []
 
-        total = self.make_call('get', endpoint, headers, data, params)['total'] 
+        total = self.make_call('get', endpoint, headers, data, params)['total']
 
         for page in range(round(total / 50) or 1):
             items.extend(self.make_call('get', endpoint, headers, data,
@@ -200,6 +200,7 @@ def get_code():
     code = request.args.get('code')
     return redirect("/spotify/main")
 
+
 def process():
 
     handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
@@ -222,10 +223,10 @@ def process():
         else:
             handler.create_playlist(lan, lan_and_songs[lan])
 
+
 @app.route("/spotify/main")
 def main_func():
     Thread(target=process).start()
-
 
     return render_template("return.html")
 
