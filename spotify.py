@@ -2,12 +2,12 @@
 import base64
 import json
 import math
-import requests
-from urllib.parse import urlencode, urlparse, parse_qs
-from requests_futures.sessions import FuturesSession
-import os
-from flask import Flask, redirect, request, render_template
+from urllib.parse import urlencode
 from threading import Thread
+import os
+import requests
+from requests_futures.sessions import FuturesSession
+from flask import Flask, redirect, request, render_template
 app = Flask(__name__)
 
 
@@ -52,17 +52,22 @@ class SpotifyHandler:
 
     def authorize(self, code):
         """ authorizes app to connect to spotify account """
-        encoded_credentials = base64.b64encode(self.client_id.encode() + 
-                            ':'.encode() + self.secret_key.encode()).decode()
+        encoded_credentials = base64.b64encode(self.client_id.encode() +
+                                               ':'.encode() +
+                                               self.secret_key.encode()).decode()
 
-        response = requests.post(url="https://accounts.spotify.com/api/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": "http://localhost:5000/spotify/code"
-        }, headers={
-            "Authorization": "Basic " + encoded_credentials,
-            "Content-Type": "application/x-www-form-urlencoded"
-        }, timeout=10)
+        response = requests.post(url="https://accounts.spotify.com/api/token",
+                                 data={
+                                    "grant_type": "authorization_code",
+                                    "code": code,
+                                    "redirect_uri": """http://localhost:5000/
+                                                    spotify/code"""
+                                    }, headers={
+                                    "Authorization": "Basic " +
+                                    encoded_credentials,
+                                    "Content-Type": """application/x-www-
+                                                    form-urlencoded"""
+                                    }, timeout=10)
 
         self.token = response.json()['access_token']
 
@@ -79,8 +84,9 @@ class SpotifyHandler:
         if not headers:
             headers = self.api_headers
 
-        response = getattr(requests, method)(BASE_URL + endpoint, headers=headers,
-                    params=params, data=data)
+        response = getattr(requests, method)(BASE_URL + endpoint,
+                                             headers=headers, params=params,
+                                             data=data)
 
         return response.json()
     #pylint: enable=R0913
@@ -94,13 +100,13 @@ class SpotifyHandler:
         for page in range(round(total / 50) or 1):
             items.extend(self.make_call('get', endpoint, headers, data,
                                         params={"offset": page * 50,
-                                        "limit": 50})['items'])
+                                                "limit": 50})['items'])
 
         return items
 
     def get_songs(self):
         """ Creates song objects with its name, artist and uri. """
-        return [Song(song['track']['name'], song['track']['artists'][0]['name'],
+        return [Song(song['track']['name'], song['track']['artists'][0] ['name'],
                 song['track']['uri']) for song in self.get_resource('me/tracks')]
 
     def get_user_id(self):
@@ -113,10 +119,12 @@ class SpotifyHandler:
         with FuturesSession(max_workers=3) as session:
             for track in tracks:
                 track.lan = session.get(f"http://api.genius.com/search?q={track.name}%20{track.artist}",
-                    headers={
-                        "Authorization":
-                        "Bearer ticNcbIdYkprjA2F9QPwfr5sB0gc-dsfJveYzLxrYXwHksvCD05nvSnie1L4RMY6"
-                    })
+                                        headers={
+                                            "Authorization":
+                                            """Bearer
+                                            ticNcbIdYkprjA2F9QPwfr5sB0gc-
+                                            dsfJveYzLxrYXwHksvCD05nvSnie1L4RMY6"""
+                                            })
 
         for track in tracks:
             try:
@@ -129,36 +137,40 @@ class SpotifyHandler:
     def get_playlists(self):
         """ creates playlist objects with name and id """
         return [Playlist(playlist['name'], playlist['id']) for playlist
-            in self.get_resource(f"users/{self.user_id}/playlists")]
+                in self.get_resource(f"users/{self.user_id}/playlists")]
 
     def empty_playlist(self, playlist_id):
         """ empty playlists for already existing languages"""
 
         for _ in range(math.ceil((self.make_call('get',
-            f'playlists/{playlist_id}/tracks')['total']/50))):
+                       f'playlists/{playlist_id}/tracks')['total']/50))):
 
-            self.make_call('delete', f'playlists/{playlist_id}/tracks', data=json.dumps(
-                {
-                    'tracks': [{'uri': track['track']['uri']
-                } for track in self.make_call('get', f'playlists/{playlist_id}/tracks',
-                params={"limit": 50})['items']]
-            }))
+            self.make_call('delete', f'playlists/{playlist_id}/tracks',
+                           data=json.dumps(
+                            {
+                                'tracks': [{'uri': track['track']['uri']
+                                            } for track in self.make_call('get',
+                                        f'playlists/{playlist_id}/tracks',
+                                        params={"limit": 50})['items']]
+                                        }))
 
     def update_playlist(self, playlist_id, songs):
         """ repopulates already existing playlists """
         for i in range(math.ceil(len(songs)/90)):
-            self.make_call('post', f'playlists/{playlist_id}/tracks', data= json.dumps(
-                {
-                    'uris': songs[i*90:i*90+90]
-                }
-            ))
+            self.make_call('post', f'playlists/{playlist_id}/tracks',
+                           data=json.dumps(
+                            {
+                                'uris': songs[i*90:i*90+90]
+                            }
+                            ))
 
     def create_playlist(self, lans, songs):
         """ creates playlist and adds songs to it """
-        playlist_id = self.make_call('post', f"users/{self.user_id}/playlists", data=json.dumps({
-                'name': lans,
-                'public': False
-            })).get('id')
+        playlist_id = self.make_call('post', f"users/{self.user_id}/playlists",
+                                     data=json.dumps({
+                                            'name': lans,
+                                            'public': False
+                                        })).get('id')
 
         if not playlist_id:
             print(f"Error adding playlist for language {lans}")
@@ -169,8 +181,8 @@ class SpotifyHandler:
                 "uris": songs[i*90:(i+1)*90],
                 "position": i*90
                 }
-            self.make_call('post', f'playlists/{playlist_id}/tracks', headers=self.api_headers,
-                data=json.dumps(uris))
+            self.make_call('post', f'playlists/{playlist_id}/tracks',
+                           headers=self.api_headers, data=json.dumps(uris))
 
         return True
 
@@ -187,7 +199,8 @@ def start():
         "client_id": CLIENT_ID,
         "response_type": "code",
         "redirect_uri": "http://localhost:5000/spotify/code",
-        "scope": "user-library-read playlist-modify-private playlist-read-private"
+        "scope": """user-library-read playlist-modify-private
+                    playlist-read-private"""
     }))
 
 
@@ -214,8 +227,9 @@ def process():
         lan_and_songs[song.lan].append(song.uri)
 
     playlists = handler.get_playlists()
-    playlist_names = {playlist.name: playlist.playlist_id for playlist in playlists}
-    
+    playlist_names = {playlist.name: playlist.playlist_id for playlist in
+                      playlists}
+
     for lan in lan_and_songs.keys():
         if lan in playlist_names.keys():
             handler.empty_playlist(playlist_names[lan])
