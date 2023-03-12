@@ -216,6 +216,7 @@ def get_code():
     return redirect("{{ url_for('main')}}")
 
 
+
 def process():
 
     handler = SpotifyHandler(CLIENT_ID, SECRET_KEY)
