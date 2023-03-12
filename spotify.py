@@ -16,6 +16,7 @@ app = get_flask_app()
 CLIENT_ID = os.environ.get('CLIENT_ID_SPOTIFY')
 SECRET_KEY = os.environ.get('SECRET_KEY_SPOTIFY')
 BASE_URL = "https://api.spotify.com/v1/"
+URI = os.environ.get('N_SPOTIFY_URI')
 
 #pylint: disable=R0903
 
@@ -62,8 +63,7 @@ class SpotifyHandler:
                                  data={
                                     "grant_type": "authorization_code",
                                     "code": code,
-                                    "redirect_uri": """http://localhost:5000/
-                                                    spotify/code"""
+                                    "redirect_uri": URI
                                     }, headers={
                                     "Authorization": "Basic " +
                                     encoded_credentials,
@@ -121,12 +121,7 @@ class SpotifyHandler:
         with FuturesSession(max_workers=3) as session:
             for track in tracks:
                 track.lan = session.get(f"http://api.genius.com/search?q={track.name}%20{track.artist}",
-                                        headers={
-                                            "Authorization":
-                                            """Bearer
-                                            ticNcbIdYkprjA2F9QPwfr5sB0gc-
-                                            dsfJveYzLxrYXwHksvCD05nvSnie1L4RMY6"""
-                                            })
+                                        headers=self.api_headers)
 
         for track in tracks:
             try:
@@ -200,7 +195,7 @@ def start():
     return redirect("https://accounts.spotify.com/authorize?" + urlencode({
         "client_id": CLIENT_ID,
         "response_type": "code",
-        "redirect_uri": "http://localhost:5000/spotify/code",
+        "redirect_uri": URI,
         "scope": """user-library-read playlist-modify-private
                     playlist-read-private"""
     }))
@@ -213,7 +208,7 @@ code = None
 def get_code():
     global code
     code = request.args.get('code')
-    return redirect(url_for('main'))
+    return redirect(url_for('main_func'))
 
 
 
