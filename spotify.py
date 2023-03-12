@@ -7,7 +7,7 @@ from threading import Thread
 import os
 import requests
 from requests_futures.sessions import FuturesSession
-from flask import Flask, redirect, request, render_template
+from flask import Flask, redirect, request, render_template, url_for
 from under_proxy import get_flask_app
 
 app = get_flask_app()
@@ -213,7 +213,7 @@ code = None
 def get_code():
     global code
     code = request.args.get('code')
-    return redirect("{{ url_for('main')}}")
+    return redirect(url_for('main'))
 
 
 
