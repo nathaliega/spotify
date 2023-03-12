@@ -8,7 +8,9 @@ import os
 import requests
 from requests_futures.sessions import FuturesSession
 from flask import Flask, redirect, request, render_template
-app = Flask(__name__)
+from under_proxy import get_flask_app
+
+app = get_flask_app()
 
 
 CLIENT_ID = os.environ.get('CLIENT_ID_SPOTIFY')
@@ -187,13 +189,13 @@ class SpotifyHandler:
         return True
 
 
-@app.route("/spotify/")
+@app.route("/")
 def home():
     return render_template("home.html")
     # return redirect("/start")
 
 
-@app.route("/spotify/start")
+@app.route("/start")
 def start():
     return redirect("https://accounts.spotify.com/authorize?" + urlencode({
         "client_id": CLIENT_ID,
@@ -207,7 +209,7 @@ def start():
 code = None
 
 
-@app.route("/spotify/code")
+@app.route("/code")
 def get_code():
     global code
     code = request.args.get('code')
@@ -238,7 +240,7 @@ def process():
             handler.create_playlist(lan, lan_and_songs[lan])
 
 
-@app.route("/spotify/main")
+@app.route("/main")
 def main_func():
     Thread(target=process).start()
 
@@ -246,4 +248,4 @@ def main_func():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5070)
