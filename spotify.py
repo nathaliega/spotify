@@ -213,7 +213,7 @@ code = None
 def get_code():
     global code
     code = request.args.get('code')
-    return redirect("/spotify/main")
+    return redirect("{{ url_for('main')}}")
 
 
 def process():
