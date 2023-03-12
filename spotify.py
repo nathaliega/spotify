@@ -66,9 +66,9 @@ class SpotifyHandler:
                                     "redirect_uri": URI
                                     }, headers={
                                     "Authorization": "Basic " +
-                                    encoded_credentials,
-                                    "Content-Type": """application/x-www-
-                                                    form-urlencoded"""
+                                    encoded_credentials
+                                    # "Content-Type": """application/x-www-
+                                                    # form-urlencoded"""
                                     }, timeout=10)
 
         self.token = response.json()['access_token']
